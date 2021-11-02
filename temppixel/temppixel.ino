@@ -6,7 +6,6 @@
 #include "ArduinoJson.h"
 
 #define PIN D2
-#define NUMPIXELS 1
 #define DELAYTIME 60000
 #define GRADIENT_SIZE 90
 
@@ -122,7 +121,7 @@ void setup() {
   WiFi.persistent(false);
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("Mickes iPhone", "GloriaMundi1723");
+  WiFiMulti.addAP("SicTransit.Net", "GloriaMundi1723");
 }
 
 void loop() {
