@@ -25,7 +25,7 @@ void loop() {
     {
       fadeAmount*=-1;      
       adcValue = analogRead(AIN);
-      //Serial.println(adcValue);
+      Serial.println(adcValue);
     }
     brightness += fadeAmount;    
     if (adcValue > 512)
