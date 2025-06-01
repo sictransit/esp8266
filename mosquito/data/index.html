@@ -31,7 +31,7 @@
                 <span class="large-symbol">+</span>
             </div>
             <div class="mb-2">
-                <input id="threshold-slider" type="range" min="0" max="100" step="1" value="50" class="form-range w-100">
+                <input id="threshold-slider" type="range" min="1" max="1024" step="1" value="256" class="form-range w-100">
                 <span id="threshold-value" class="badge bg-primary fs-5">Loading...</span>
             </div>
             <div class="mb-2">
@@ -89,18 +89,12 @@
 
         async function postThreshold(value) {
             try {
-                const response = await fetch('/threshold', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ threshold: value })
-                });
+                const response = await fetch(`/threshold?value=${encodeURIComponent(value)}`);
                 if (!response.ok) {
-                    console.error('Failed to post threshold value');
+                    console.error('Failed to set threshold value');
                 }
             } catch (error) {
-                console.error('Error posting threshold value:', error);
+                console.error('Error setting threshold value:', error);
             }
         }
 
@@ -113,7 +107,7 @@
             postThreshold(value); // Post the new value
         });
 
-        setInterval(fetchStatus, 5000); // Fetch status every second
+        setInterval(fetchStatus, 1000); // Fetch status every second
     </script>
 </body>
 </html>
