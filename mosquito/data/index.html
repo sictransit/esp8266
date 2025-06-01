@@ -98,8 +98,35 @@
             }
         }
 
+        function updateSliderColor(value) {
+            const min = 1;
+            const max = 1024;
+            const percent = (value - min) / (max - min);
+
+            // Daylight warm yellow
+            const r1 = 255, g1 = 230, b1 = 128;
+            // Night blue/black
+            const r2 = 16, g2 = 24, b2 = 64;
+
+            // Linear interpolation
+            const r = Math.round(r1 + (r2 - r1) * percent);
+            const g = Math.round(g1 + (g2 - g1) * percent);
+            const b = Math.round(b1 + (b2 - b1) * percent);
+
+            const color = `rgb(${r},${g},${b})`;
+            thresholdSlider.style.background = color;
+        }
+
         // Event listener for slider changes
         const thresholdSlider = document.getElementById('threshold-slider');
+
+        thresholdSlider.addEventListener('input', (event) => {
+            const value = event.target.value;
+            thresholdValueElement.textContent = value; // Update displayed value
+            postThreshold(value); // Post the new value
+            updateSliderColor(value); // Update color
+        });
+
         const thresholdValueElement = document.getElementById('threshold-value');
         thresholdSlider.addEventListener('input', (event) => {
             const value = event.target.value;
