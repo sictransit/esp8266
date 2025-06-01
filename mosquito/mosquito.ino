@@ -1,6 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
 
 #ifndef APSSID
 #define APSSID "ESPap"
@@ -13,45 +15,69 @@
 const char *ssid = APSSID;
 const char *password = APPSK;
 
-int brightness = 128;    // how bright the LED is
-int fadeAmount = 1;    // how many points to fade the LED by
+int brightness = 128;    
+int fadeAmount = 1;    
 int adcValue = 1023;
 int pause = 0;
 
-ESP8266WebServer server(80);
+AsyncWebServer server(80);
 
-void handleRoot() {
-  server.send(200, "text/html", "<h1>" + String(adcValue) +"</h1>");
-}
-
-//=======================================================================
-//                    Power on setup
-//=======================================================================
 void setup() {
   delay(1000);
   Serial.begin(115200);
-  Serial.println();
-  Serial.print("Configuring access point...");
-  /* You can remove the password parameter if you want the AP to be open. */
-  WiFi.softAP(ssid, password);
+  Serial.println("Setup ...");
 
-  IPAddress myIP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(myIP);
-  server.on("/", handleRoot);
-  server.begin();
-  Serial.println("HTTP server started");
+  initFS();
+  initWS();
+  initAP();    
 
   pinMode(LED,OUTPUT);  
   analogWriteFreq(320);
+
+  Serial.println("Setup done!");
 }
 
-//=======================================================================
-//                    Main Program Loop
-//=======================================================================
-void loop() {
-    server.handleClient();
+void initWS()
+{
+  Serial.println("Init WS ...");
+  
+  server.serveStatic("/", LittleFS, "/");
 
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/index.html", "text/html");
+  });
+
+  server.begin();
+  Serial.println("HTTP server started");
+  
+  Serial.println("WS done!");
+}
+
+void initAP()
+{
+  Serial.println("Init AP ...");
+  
+  WiFi.softAP(ssid, password);
+  IPAddress myIP = WiFi.softAPIP();
+
+  Serial.print("AP IP address: ");
+  Serial.println(myIP);
+
+  Serial.println("AP done!");
+}
+
+void initFS() {
+  Serial.println("Init FS ...");
+
+  if (!LittleFS.begin()) {
+    Serial.println("FS error!");
+  }
+  else {
+    Serial.println("FS done!");
+  }
+}
+
+void loop() {
     if (pause++ > 100)
     {
       pause=0;
@@ -60,10 +86,10 @@ void loop() {
       {
         fadeAmount*=-1;      
         adcValue = analogRead(AIN);
-        Serial.println(adcValue);
+        //Serial.println(adcValue);
       }
       brightness += fadeAmount;    
-      if (adcValue > 512)
+      if (adcValue > 128)
       {
         analogWrite(LED, brightness);
       }
@@ -73,4 +99,3 @@ void loop() {
       }
     }
 }
-//=======================================================================
