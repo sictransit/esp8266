@@ -1,0 +1,11 @@
+<div style="display: flex; align-items: center; gap: 1em;">
+  <input
+    id="sensitivity-slider"
+    type="range"
+    min="0"
+    max="511"
+    [value]="value"
+    (input)="onSliderChange($event)"
+    style="flex: 1;"
+  />
+</div>

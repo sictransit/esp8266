@@ -1,9 +1,9 @@
 import { Component } from '@angular/core';
-import { Mode } from '../mode/mode';
+import { Sensitivity } from '../sensitivity/sensitivity';
 
 @Component({
   selector: 'app-main',
-  imports: [ Mode ],
+  imports: [ Sensitivity ],
   templateUrl: './main.html',
   styleUrl: './main.scss'
 })
