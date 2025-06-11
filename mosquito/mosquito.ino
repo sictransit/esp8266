@@ -16,7 +16,7 @@ const char *ssid = APSSID;
 const char *password = APPSK;
 
 int light = 0;
-int mode = 0; // 0: sleeping; 1: hunting
+int mode = 0; // 0: sleeping; 1: lurking; 2: hunting
 int threshold = 128;
 
 AsyncWebServer server(80);
@@ -54,11 +54,12 @@ void initWS()
             { request->send(200, "text/plain", String(light)); });
 
   server.on("/threshold", HTTP_GET, [](AsyncWebServerRequest *request)
-            { 
-              if (request->hasParam("value")) {
+            {
+if (request->hasParam("value")) {
           threshold = request->getParam("value")->value().toInt();
       }
-              request->send(200, "text/plain", String(threshold)); });
+              request->send(200, "text/plain", String(threshold)); 
+});
 
 
 
@@ -115,7 +116,14 @@ void mosquito()
 
     if (light > threshold)
     {
-      mode = 1; // hunting
+		if (mode == 0)
+		{
+			mode = 1;
+		}
+		else if (mode == 1 && ...)
+		{
+			mode = 2; // hunting
+		}      
     }
     else
     {
