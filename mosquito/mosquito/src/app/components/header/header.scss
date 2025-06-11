@@ -7,19 +7,14 @@
   box-sizing: border-box;
 }
 
-.mosquito-icon {
-  font-size: 1.8rem;
-  flex: 0 0 auto;
-}
-
 .header-title {
-  flex: 1 1 auto;
-  text-align: center;
+  flex: 0 1 auto;
+  text-align: left;
   font-size: 1.3rem;
   font-weight: bold;
   letter-spacing: 0.05em;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.5em;
 }
@@ -34,4 +29,5 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
+  margin-left: auto;
 }
