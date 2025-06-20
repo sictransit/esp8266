@@ -12,7 +12,7 @@ export class Mode implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.fetchMode();
-    this.intervalId = setInterval(() => this.fetchMode(), 5000);
+    this.intervalId = setInterval(() => this.fetchMode(), 1000);
   }
 
   ngOnDestroy() {

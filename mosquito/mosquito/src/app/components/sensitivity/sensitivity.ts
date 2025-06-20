@@ -20,10 +20,9 @@ export class Sensitivity implements OnInit {
   onSliderChange(event: any) {
     const newValue = event.target.value;
     this.value = newValue;
-    fetch('/sensitivity', {
+    fetch(`/sensitivity?value=${encodeURIComponent(newValue)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'text/plain' },
-      body: String(newValue)
+      headers: { 'Content-Type': 'text/plain' }      
     });
   }
 }
