@@ -9,6 +9,10 @@ import { Component, OnInit } from '@angular/core';
 export class Sensitivity implements OnInit {
   value: number = 0;
 
+  get percentage(): number {
+    return Math.round((this.value / 1023) * 100);
+  }
+
   ngOnInit() {
     fetch('/sensitivity')
       .then(res => res.text())

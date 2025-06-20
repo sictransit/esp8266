@@ -10,6 +10,10 @@ export class Light implements OnInit, OnDestroy {
   value: number = 0;
   private intervalId: any;
 
+  get percent(): string {
+    return Math.round((this.value / 1023) * 100) + '%';
+  }
+
   ngOnInit() {
     this.fetchLight();
     this.intervalId = setInterval(() => this.fetchLight(), 1000);
