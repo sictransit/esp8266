@@ -1,3 +1,4 @@
+import { N } from '@angular/cdk/keycodes';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 
 @Component({
@@ -7,12 +8,9 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
   styleUrl: './light.scss'
 })
 export class Light implements OnInit, OnDestroy {
-  value: number = 0;
+  lightLevel: number = NaN;
   private intervalId: any;
 
-  get percent(): string {
-    return Math.round((this.value / 1023) * 100) + '%';
-  }
 
   ngOnInit() {
     this.fetchLight();
@@ -29,7 +27,7 @@ export class Light implements OnInit, OnDestroy {
     fetch('/light')
       .then(res => res.text())
       .then(val => {
-        this.value = Number(val);
+        this.lightLevel = Number(val);
       });
   }
 }

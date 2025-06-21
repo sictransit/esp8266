@@ -1,30 +1,28 @@
 import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatSliderModule } from '@angular/material/slider';
+
 
 @Component({
   selector: 'app-sensitivity',
-  imports: [],
+  imports: [MatSliderModule, FormsModule],
   templateUrl: './sensitivity.html',
   styleUrl: './sensitivity.scss'
 })
 export class Sensitivity implements OnInit {
-  value: number = 0;
-
-  get percentage(): number {
-    return Math.round((this.value / 1023) * 100);
-  }
+  sensitivityLevel: number = NaN;
 
   ngOnInit() {
     fetch('/sensitivity')
       .then(res => res.text())
       .then(val => {
-        this.value = Number(val);
+        this.sensitivityLevel = Number(val);
       });
   }
 
   onSliderChange(event: any) {
-    const newValue = event.target.value;
-    this.value = newValue;
-    fetch(`/sensitivity?value=${encodeURIComponent(newValue)}`, {
+    this.sensitivityLevel = event.target.value;
+    fetch(`/sensitivity?value=${encodeURIComponent(this.sensitivityLevel)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'text/plain' }      
     });

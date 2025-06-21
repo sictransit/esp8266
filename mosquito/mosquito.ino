@@ -13,9 +13,11 @@
 const char *ssid = APSSID;
 const char *password = APPSK;
 
+const int MAX_LIGHT = 1023;
+
 int light = 0;
 int mode = 0;  // 0: sleeping; 1: lurking; 2: hunting
-int sensitivity = 128;
+int sensitivity = MAX_LIGHT / 2;
 
 AsyncWebServer server(80);
 
@@ -49,16 +51,16 @@ void initWS() {
   });
 
   server.on("/light", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", String(light));
+    request->send(200, "text/plain", String(light * 100 / MAX_LIGHT));
   });
 
   server.on("/sensitivity", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", String(sensitivity));
+    request->send(200, "text/plain", String(sensitivity * 100 / MAX_LIGHT));
   });
 
   server.on("/sensitivity", HTTP_PUT, [](AsyncWebServerRequest *request) {
     if (request->hasParam("value")) {
-      sensitivity = request->getParam("value")->value().toInt();
+      sensitivity = (request->getParam("value")->value().toInt()) * MAX_LIGHT / 100;
     }
     request->send(200, "text/plain", String(sensitivity));
   });
@@ -124,7 +126,7 @@ void mosquito() {
 
     if (mode == 2) {
       mosquito_sound();
-    } else {
+    } else if (mode == 0 && currentMode == 2) {
       analogWrite(BUZZER, 0);
     }
   }

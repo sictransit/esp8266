@@ -1,12 +1,14 @@
-<div style="display: flex; align-items: center; gap: 1em;">
-  <input
-    id="sensitivity-slider"
-    type="range"
-    min="0"
-    max="1023"
-    [value]="value"
-    (input)="onSliderChange($event)"
-    style="flex: 1;"
-  />
-  <span>{{ percentage }}</span>
+<div style="display: flex; align-items: center; gap: 1em; ">
+  <mat-slider 
+    style="width: 100%;"
+    min="0" 
+    max="100"
+    step="10"    
+    ticks
+    thumbLabel
+    discrete
+    [(ngModel)]="sensitivityLevel"
+    (change)="onSliderChange($event)"
+  ><input matSliderThumb [(ngModel)]="sensitivityLevel" #slider></mat-slider>  
 </div>
+
