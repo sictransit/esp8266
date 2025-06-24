@@ -14,32 +14,47 @@ const char *ssid = APSSID;
 const char *password = APPSK;
 
 const int MAX_LIGHT = 1023;
+const int BASE_FREQ = 520;      // Base frequency for mosquito sound
+const int FREQ_VARIATION = 60;  // Frequency variation for mosquito sound
 
+enum Mode {
+  DEAD = -1,
+  SLEEPING = 0,
+  LURKING = 1,
+  HUNTING = 2
+};
+
+Mode mode = DEAD;  // Use enum for mode
 int light = 0;
-int mode = 0;  // 0: sleeping; 1: lurking; 2: hunting
 int sensitivity = MAX_LIGHT / 2;
 
 AsyncWebServer server(80);
 
 void setup() {
+  Serial.println("Starting setup...");
   delay(1000);
 
   Serial.begin(115200);
-  Serial.println("Setup ...");
 
+  Serial.println("Init FS ...");
   initFS();
+
+  Serial.println("Init WS ...");
   initWS();
+
+  Serial.println("Init AP ...");
   initAP();
 
   pinMode(BUZZER, OUTPUT);
   analogWriteFreq(320);
 
   Serial.println("Setup done!");
+
+  // Set initial mode
+  mode = SLEEPING;
 }
 
 void initWS() {
-  Serial.println("Init WS ...");
-
   server.serveStatic("/", LittleFS, "/");
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -68,25 +83,17 @@ void initWS() {
   server.begin();
 
   Serial.println("HTTP server started");
-
-  Serial.println("WS done!");
 }
 
 void initAP() {
-  Serial.println("Init AP ...");
-
   WiFi.softAP(ssid, password);
   IPAddress myIP = WiFi.softAPIP();
 
   Serial.print("AP IP address: ");
   Serial.println(myIP);
-
-  Serial.println("AP done!");
 }
 
 void initFS() {
-  Serial.println("Init FS ...");
-
   if (!LittleFS.begin()) {
     Serial.println("FS error!");
   } else {
@@ -95,47 +102,46 @@ void initFS() {
 }
 
 void loop() {
-  mosquito();
+  unsigned long now = millis();
+  static unsigned long lastRun = 0;
+
+  if (now - lastRun >= 25 && mode != DEAD) {  // run every 25 ms if not dead
+    lastRun = now;
+    handle_mode(now);
+  }
 }
 
-void mosquito() {
-  static unsigned long lastRun = 0;
+void handle_mode(unsigned long now) {
   static unsigned long lurkStart = 0;
   static unsigned long lurkDuration = 0;
 
-  unsigned long now = millis();
+  light = analogRead(LDR);
 
-  if (now - lastRun >= 25) {
-    lastRun = now;
+  Mode currentMode = mode;
 
-    light = analogRead(LDR);
-
-    int currentMode = mode;
-
-    if (light > sensitivity) {
-      if (mode == 0) {
-        mode = 1;
-        lurkStart = now;
-        lurkDuration = random(5000, 10000);  // lurk for 5 to 10 seconds
-      } else if (mode == 1 && now - lurkStart >= lurkDuration) {
-        mode = 2;  // hunting
-      }
-    } else {
-      mode = 0;  // sleeping
+  if (light > sensitivity) {
+    if (mode == SLEEPING) {
+      mode = LURKING;
+      lurkStart = now;
+      lurkDuration = random(5000, 10000);  // lurk for 5 to 10 seconds
+    } else if (mode == LURKING && now - lurkStart >= lurkDuration) {
+      mode = HUNTING;  // hunting
     }
+  } else {
+    mode = SLEEPING;  // sleeping
+  }
 
-    if (mode == 2) {
-      mosquito_sound();
-    } else if (mode == 0 && currentMode == 2) {
-      analogWrite(BUZZER, 0);
-    }
+  if (mode == HUNTING) {
+    mosquito_sound();
+  } else if (mode == SLEEPING && currentMode == HUNTING) {
+    analogWrite(BUZZER, 0);
   }
 }
 
 void mosquito_sound() {
   static unsigned long lastFreqChange = 0;
   static unsigned long lastAmpChange = 0;
-  static int freq = 520;
+  static int freq = BASE_FREQ;
   static int direction = 1;
   static int amplitude = 100;
   static int ampDir = 1;
@@ -147,8 +153,8 @@ void mosquito_sound() {
   if (now - lastFreqChange >= freqInterval) {
     lastFreqChange = now;
     freq += direction;
-    if (freq >= 580) direction = -1;
-    if (freq <= 520) direction = 1;
+    if (freq >= BASE_FREQ + FREQ_VARIATION) direction = -1;
+    if (freq <= BASE_FREQ) direction = 1;
     analogWriteFreq(freq);
     freqInterval = random(1800, 2200);
   }
