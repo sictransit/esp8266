@@ -58,7 +58,7 @@ void setup(void) {
   WiFi.persistent(false);
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("SicTransit.Guest", "Gloria1314Mundi");
+  WiFiMulti.addAP("AP", "pw");
 }
 
 void loop(void) {
