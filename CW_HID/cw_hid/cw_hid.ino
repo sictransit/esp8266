@@ -1,98 +1,240 @@
-// CW key -> built-in LED + NeoPixel + 600 Hz sidetone + SH1106 OLED
+// CW decoder: key -> sidetone + onboard LED
+//             + decoded text on SH1106 OLED + NeoPixel keying-quality indicator
 // Board: LOLIN(WEMOS) D1 mini (ESP8266)
 
 #include <Arduino.h>
 #include <Wire.h>
 #include <U8g2lib.h>
 #include <Adafruit_NeoPixel.h>
+#include <map>
+#include <string>
 
-const uint8_t KEY_PIN    = D7;   // GPIO13, key to GND, internal pull-up
-const uint8_t BUZZER_PIN = D5;   // GPIO14, passive piezo
-const uint8_t PIXEL_PIN  = D6;   // GPIO12, NeoPixel DIN
-const uint8_t LED_PIN    = LED_BUILTIN; // GPIO2, active-low
-const uint16_t TONE_HZ   = 600;
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0);   // D1 = SCL, D2 = SDA
 
-const uint8_t NUM_PIXELS = 1;
-const uint8_t BRIGHTNESS = 40;
+const int KEY       = D7;    // key to GND, internal pull-up
+const int BUZZER    = D5;    // passive piezo
+const int PIXEL_PIN = D6;    // NeoPixel DIN
+const uint16_t TONE_HZ = 600;
+const unsigned long DEBOUNCE_US = 3000;
 
-const unsigned long DEBOUNCE_MS = 5;
+Adafruit_NeoPixel pixel(1, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-Adafruit_NeoPixel pixel(NUM_PIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0);  // D1=SCL, D2=SDA
+const std::map<std::string, const char*> MORSE = {
+  {".-","A"},{"-...","B"},{"-.-.","C"},{"-..","D"},{".","E"},{"..-.","F"},
+  {"--.","G"},{"....","H"},{"..","I"},{".---","J"},{"-.-","K"},{".-..","L"},
+  {"--","M"},{"-.","N"},{"---","O"},{".--.","P"},{"--.-","Q"},{".-.","R"},
+  {"...","S"},{"-","T"},{"..-","U"},{"...-","V"},{".--","W"},{"-..-","X"},
+  {"-.--","Y"},{"--..","Z"},
+  {"-----","0"},{".----","1"},{"..---","2"},{"...--","3"},{"....-","4"},
+  {".....","5"},{"-....","6"},{"--...","7"},{"---..","8"},{"----.","9"},
+  {".-.-.-","."},{"--..--",","},{"..--..","?"},{"-..-.","/"},{"-....-","-"},
+  {".-.-.","<AR>"},{"...-.-","<SK>"},{"-.--.","<KN>"},{".-...","<AS>"},
+  {"-...-","\n"},{"........","\b"},
+  {"-.-.-","<CMD>"},
+};
 
-bool keyDown = false;            // debounced state
-bool lastRaw = false;
-unsigned long lastChange = 0;    // raw edge time (debounce)
-unsigned long stateStart = 0;    // when the current debounced state began
-unsigned long lastDownMs = 0;    // duration of the last key-down
-unsigned long lastUpMs   = 0;    // duration of the last key-up
+// ---- decoder state ----
+bool last = HIGH;                  // HIGH = key up
+unsigned long lastChange = 0;
+float dit = 80000;                 // us, follows the keying speed (from the marks)
+char sym[16];
+int n = 0;
+bool wordPending = false;
+bool cmdMode = false;
 
-void showPixel(bool down) {
-  uint32_t color = down ? pixel.Color(0, 255, 0) : pixel.Color(0, 0, 0);
-  for (uint8_t i = 0; i < NUM_PIXELS; i++) pixel.setPixelColor(i, color);
+// ---- keying quality: "dit train" reference ----
+// Picture a reference wave with a period of 2 dits. Key-down should happen when
+// it goes negative, key-up when it goes positive: a dit ends half a period
+// later (1 tick), a dah 1.5 periods later (3 ticks). Gaps are 1, 3 or 7 ticks,
+// so two successive edges are always an odd number of ticks apart, and key-down
+// edges land on even ticks, key-up edges on odd ticks.
+//
+// The reference is anchored to the previous edge and is nudged only part of the
+// way (PHASE_GAIN) towards each new edge, so keying that wanders against the
+// beat shows up as phase error. Speed (dit) adapts to the marks as before.
+// The first key-down after a long pause locks the phase.
+const float PHASE_GAIN = 0.25f;    // 0 = rigid reference, 1 = follows every edge
+const float Q_GOOD = 0.10f;        // smoothed phase error (in dits) at or below: green
+const float Q_BAD  = 0.40f;        // at or above: red
+unsigned long anchorT = 0;         // reference time of the latest edge (us)
+bool haveAnchor = false;
+float qErr = Q_GOOD;
+bool pixelLit = false;
+
+float qualityT() {                 // 0 = good, 1 = bad
+  return constrain((qErr - Q_GOOD) / (Q_BAD - Q_GOOD), 0.0f, 1.0f);
+}
+
+void showQuality() {
+  float t = qualityT();
+  pixel.setPixelColor(0, pixel.Color((uint8_t)(255 * t), (uint8_t)(255 * (1 - t)), 0));
   pixel.show();
+  pixelLit = true;
 }
 
-void drawDisplay() {
-  char line[24];
-  u8g2.clearBuffer();
-
-  u8g2.setFont(u8g2_font_ncenB14_tf);
-  u8g2.drawStr(0, 22, keyDown ? "KEY DOWN" : "KEY UP");
-
-  u8g2.setFont(u8g2_font_6x12_tf);
-  snprintf(line, sizeof(line), "Last down: %lu ms", lastDownMs);
-  u8g2.drawStr(0, 44, line);
-  snprintf(line, sizeof(line), "Last up:   %lu ms", lastUpMs);
-  u8g2.drawStr(0, 58, line);
-
-  u8g2.sendBuffer();
+void pixelOff() {
+  pixel.clear();
+  pixel.show();
+  pixelLit = false;
 }
 
-void setKey(bool down) {
-  digitalWrite(LED_PIN, down ? LOW : HIGH);  // active-low LED
-  if (down) {
-    tone(BUZZER_PIN, TONE_HZ);
-  } else {
-    noTone(BUZZER_PIN);
+int gapTicks(unsigned long g) {    // classify a gap as 1, 3 or 7 ticks
+  return (g < 2 * dit) ? 1 : (g < 5 * dit) ? 3 : 7;
+}
+
+// Score an edge at time t that is expected 'ticks' dits after the previous edge.
+void scoreEdge(unsigned long t, int ticks) {
+  unsigned long tick = anchorT + (unsigned long)(long)(ticks * dit);   // expected time
+  float e = (float)(long)(t - tick) / dit;                              // phase error in dits, + = late
+  e = constrain(e, -1.0f, 1.0f);
+  qErr = 0.8f * qErr + 0.2f * fabsf(e);
+  anchorT = tick + (unsigned long)(long)(PHASE_GAIN * e * dit);
+  showQuality();
+}
+
+// ---- display: status row + 7 text rows, each row = one 8 px tile row ----
+const int COLS = 25, ROWS = 7;
+char lines[ROWS][COLS + 1];
+int curLine = 0, col = 0;
+
+void drawStatus() {
+  char buf[26];
+  int q = (int)(100 * (1.0f - qualityT()) + 0.5f);
+  snprintf(buf, sizeof buf, "CW %2d WPM  Q %3d%%", (int)(1200000.0 / dit + 0.5), q);
+  u8g2.setDrawColor(0); u8g2.drawBox(0, 0, 128, 8); u8g2.setDrawColor(1);
+  u8g2.drawStr(0, 0, buf);
+  u8g2.updateDisplayArea(0, 0, 16, 1);
+}
+
+void drawRow(int i) {
+  u8g2.setDrawColor(0); u8g2.drawBox(0, (i + 1) * 8, 128, 8); u8g2.setDrawColor(1);
+  u8g2.drawStr(0, (i + 1) * 8, lines[i]);
+}
+
+void newLine(bool &scrolled) {
+  if (curLine < ROWS - 1) curLine++;
+  else {
+    memmove(lines[0], lines[1], (ROWS - 1) * (COLS + 1));
+    scrolled = true;
   }
-  showPixel(down);
+  lines[curLine][0] = 0;
+  col = 0;
+}
+
+void showText(const char* s) {
+  bool scrolled = false;
+  int from = curLine;
+  for (; *s; s++) {
+    char c = *s;
+    if (c == '\n') newLine(scrolled);
+    else if (c == '\b') { if (col > 0) lines[curLine][--col] = 0; }
+    else {
+      if (col >= COLS) newLine(scrolled);
+      lines[curLine][col++] = c;
+      lines[curLine][col] = 0;
+    }
+  }
+  if (scrolled) {
+    for (int i = 0; i < ROWS; i++) drawRow(i);
+    u8g2.updateDisplayArea(0, 1, 16, ROWS);
+  } else {
+    for (int i = from; i <= curLine; i++) drawRow(i);
+    u8g2.updateDisplayArea(0, from + 1, 16, curLine - from + 1);
+  }
+}
+
+void emit(const char* s) { Serial.print(s); showText(s); }
+
+// ---- commands (arrow keys etc.) ----
+void sendCommand(char c) {
+  switch (c) {
+    case 'U': emit("<UP>");    break;   // later: Keyboard.write(KEY_UP_ARROW)
+    case 'D': emit("<DOWN>");  break;
+    case 'L': emit("<LEFT>");  break;
+    case 'R': emit("<RIGHT>"); break;
+    case 'H': emit("<HOME>");  break;
+    case 'E': emit("<END>");   break;
+    case 'X': emit("<DEL>");   break;
+    case 'T': emit("<TAB>");   break;
+    case 'N': emit("<ENTER>"); break;
+    default:  emit("<?>");     break;
+  }
+}
+
+void flushChar() {
+  sym[n] = 0;
+  auto it = MORSE.find(sym);
+  const char* out = (it != MORSE.end()) ? it->second : "?";
+  bool special = false;
+
+  if (!strcmp(out, "<CMD>")) { cmdMode = true; special = true; }
+  else if (cmdMode)          { cmdMode = false; sendCommand(out[0]); special = true; }
+  else                         emit(out);
+
+  n = 0;
+  wordPending = !special;
+  drawStatus();
 }
 
 void setup() {
   Serial.begin(115200);
-  pinMode(KEY_PIN, INPUT_PULLUP);
-  pinMode(LED_PIN, OUTPUT);
-  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(KEY, INPUT_PULLUP);
+  pinMode(BUZZER, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);        // active low: HIGH = off
 
   pixel.begin();
-  pixel.setBrightness(BRIGHTNESS);
+  pixel.setBrightness(40);
+  pixelOff();
 
   u8g2.begin();
-  u8g2.setBusClock(400000);      // faster redraws, less time blocked
-
-  stateStart = millis();
-  setKey(false);
-  drawDisplay();
+  u8g2.setBusClock(400000);
+  u8g2.setFont(u8g2_font_5x8_tf);
+  u8g2.setFontPosTop();
+  u8g2.clearBuffer();
+  u8g2.sendBuffer();
+  drawStatus();
 }
 
 void loop() {
-  bool raw = (digitalRead(KEY_PIN) == LOW);   // LOW = key pressed
+  bool s = digitalRead(KEY);
+  unsigned long now = micros();
+  unsigned long d = now - lastChange;
 
-  if (raw != lastRaw) {
-    lastRaw = raw;
-    lastChange = millis();
+  if (s != last && d > DEBOUNCE_US) {
+    if (s == LOW) {                       // pressed: d = gap since release
+      tone(BUZZER, TONE_HZ);              // sound first, slow stuff after
+      if (!haveAnchor || d > 10 * dit) {  // new phrase: lock the phase here
+        anchorT = now;
+        haveAnchor = true;
+      } else {
+        scoreEdge(now, gapTicks(d));
+      }
+    } else {                              // released: d = length of the mark
+      noTone(BUZZER);
+      bool dah = d > 2 * dit;
+      scoreEdge(now, dah ? 3 : 1);        // score before the speed adapts
+      if (n < 15) sym[n++] = dah ? '-' : '.';
+      dit = 0.8 * dit + 0.2 * (dah ? d / 3.0 : d);
+      dit = constrain(dit, 25000.0, 400000.0);
+    }
+    digitalWrite(LED_BUILTIN, s);         // onboard LED on while key is down (active low)
+    last = s;
+    lastChange = now;
+    return;
   }
 
-  if ((millis() - lastChange) >= DEBOUNCE_MS && raw != keyDown) {
-    unsigned long now = lastChange;           // timestamp of the actual edge
-    unsigned long dur = now - stateStart;
-    if (keyDown) lastDownMs = dur; else lastUpMs = dur;
-    stateStart = now;
-
-    keyDown = raw;
-    setKey(keyDown);                          // sound and lights first
-    drawDisplay();                            // then the slow part
-    Serial.println(keyDown ? "DOWN" : "UP");
+  if (last == HIGH) {                     // key up: gap timeouts
+    if (n > 0 && d > 2.5 * dit) flushChar();
+    else if (wordPending && d > 5 * dit) {
+      emit(" ");
+      drawStatus();
+      wordPending = false;
+      cmdMode = false;
+    }
+    if (d > 20 * dit && pixelLit) {       // idle: pixel off, reset quality
+      pixelOff();
+      qErr = Q_GOOD;
+    }
   }
 }
