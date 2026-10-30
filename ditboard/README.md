@@ -99,16 +99,16 @@ boot-strapping pins.
 
 ### Schematic
 
-![Schematic](cw_decoder_schematic.svg)
+![Schematic](ditboard_schematic.svg)
 
-The same drawing is in `cw_decoder_schematic.svg` (opens in any browser) and
-`cw_decoder_schematic.png`. Only the pins the sketch uses are drawn.
+The same drawing is in `ditboard_schematic.svg` (opens in any browser) and
+`ditboard_schematic.png`. Only the pins the sketch uses are drawn.
 
 ### Build
 
 1. Arduino IDE with the ESP8266 board package, board *LOLIN(WEMOS) D1 R2 & mini*.
 2. Libraries: **U8g2** and **Adafruit NeoPixel**.
-3. Open `cw_decoder.ino`, upload, open the Serial monitor at 115200 for the text stream.
+3. Open `ditboard.ino`, upload, open the Serial monitor at 115200 for the text stream.
 
 If the OLED shows garbage or is shifted by a couple of pixels, the module is probably an
 SSD1306: change the `u8g2` constructor accordingly.
