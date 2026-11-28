@@ -4,6 +4,7 @@
 #include <WiFiClient.h>
 #include <Adafruit_NeoPixel.h>
 #include "ArduinoJson.h"
+#include "secrets.h"
 
 #define PIN D2
 #define DELAYTIME 60000
@@ -121,7 +122,7 @@ void setup() {
   WiFi.persistent(false);
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("SicTransit.Net", "GloriaMundi1723");
+  WiFiMulti.addAP(APSSID, APPSK);
 }
 
 void loop() {
