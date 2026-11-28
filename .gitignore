@@ -4,3 +4,4 @@
 /mosquito/.vs
 /ditboard_rp2040zero/ditBoard
 /mosquito/secrets.h
+/pinger/secrets.h

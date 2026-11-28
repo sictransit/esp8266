@@ -11,6 +11,8 @@
 
 #include <Adafruit_NeoPixel.h>
 
+#include "secrets.h"
+
 #define PIN D2
 // How many NeoPixels are attached to the Arduino?
 #define NUMPIXELS 1
@@ -51,7 +53,7 @@ void setup() {
   WiFi.persistent(false);
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("SicTransit.Guest", "Gloria1314Mundi");
+  WiFiMulti.addAP(PINGER_WIFI_SSID, PINGER_WIFI_PASSWORD);
 
   pinger.OnReceive([](const PingerResponse & response)
   {
