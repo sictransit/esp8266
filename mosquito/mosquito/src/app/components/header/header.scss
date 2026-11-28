@@ -1,0 +1,33 @@
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  box-sizing: border-box;
+}
+
+.header-title {
+  flex: 0 1 auto;
+  text-align: left;
+  font-size: 1.3rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.header-version {
+  font-size: 1.3rem;
+  font-weight: normal;
+  opacity: 0.7;
+}
+
+.status-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
