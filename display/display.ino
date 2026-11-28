@@ -46,7 +46,7 @@ void setup(void) {
   status = bme.begin(0x76);
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
-    while (1);
+    while (true) delay(1000);
   }
 
   u8g2.begin();
