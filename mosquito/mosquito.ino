@@ -73,9 +73,27 @@ void initWS() {
   });
 
   server.on("/sensitivity", HTTP_PUT, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("value")) {
-      sensitivity = (request->getParam("value")->value().toInt()) * MAX_LIGHT / 100;
+    if (!request->hasParam("value")) {
+      request->send(400, "text/plain", "value must be an integer from 0 to 100");
+      return;
     }
+    String value = request->getParam("value")->value();
+    int percentage = 0;
+    bool valid = value.length() > 0;
+    for (unsigned int i = 0; valid && i < value.length(); i++) {
+      char c = value[i];
+      if (c < '0' || c > '9') {
+        valid = false;
+      } else {
+        percentage = percentage * 10 + (c - '0');
+        valid = percentage <= 100;
+      }
+    }
+    if (!valid) {
+      request->send(400, "text/plain", "value must be an integer from 0 to 100");
+      return;
+    }
+    sensitivity = percentage * MAX_LIGHT / 100;
     request->send(200, "text/plain", String(sensitivity));
   });
 
