@@ -139,7 +139,15 @@ void loop() {
       return;
     }
 
-    double temp = parsed["value"][0]["value"];
+    String rawTemp = parsed["value"][0]["value"].as<String>();
+    const char* start = rawTemp.c_str();
+    char* end;
+    double temp = strtod(start, &end);
+    if (end == start || *end != '\0' || !isfinite(temp)) {
+      Serial.println("Missing or invalid temperature observation");
+      delay(5000);
+      return;
+    }
     //Serial.println(temp);    
 
     int index = -GRADIENT_SIZE / (MAX_TEMP - MIN_TEMP) * (temp + MIN_TEMP) ;
