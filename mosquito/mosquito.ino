@@ -44,6 +44,7 @@ void setup() {
   initAP();
 
   pinMode(BUZZER, OUTPUT);
+  analogWriteRange(1023);
   analogWriteFreq(320);
 
   Serial.println("Setup done!");
