@@ -3,9 +3,7 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
-
-#define APSSID "mosquito"
-#define APPSK "myggizzz!"
+#include "secrets.h"
 
 #define BUZZER 4
 #define LDR A0
